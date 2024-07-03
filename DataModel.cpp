@@ -3,11 +3,58 @@
 #include "config/config.cpp"
 #include <curl/curl.h>
 #include "json.hpp"
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 
 struct StockData {
     std::string timestamp;
     double close;
 };
+
+
+std::string getCurrentDate() {
+    // Get current time
+    std::time_t now = std::time(nullptr);
+    std::tm* currentTime = std::localtime(&now);
+    
+    // Create a stringstream to format the date
+    std::stringstream dateStream;
+    dateStream << std::put_time(currentTime, "%Y-%m-%d");
+    
+    // Convert the stringstream to a string
+    return dateStream.str();
+}
+
+std::string getDateMinusYears(int years) {
+    // Get current time
+    std::time_t now = std::time(nullptr);
+    std::tm* currentTime = std::localtime(&now);
+    
+    // Subtract the specified number of years
+    currentTime->tm_year -= years;
+    
+    // Normalize the tm structure (in case the subtraction results in an invalid date)
+    std::mktime(currentTime);
+    
+    // Create a stringstream to format the date
+    std::stringstream dateStream;
+    dateStream << std::put_time(currentTime, "%Y-%m-%d");
+    
+    // Convert the stringstream to a string
+    return dateStream.str();
+}
+
+
+// int main() {
+//     // Get the current date as a string
+//     std::string currentDate = getCurrentDate();
+    
+//     // Print the current date
+//     std::cout << "Current Date: " << currentDate << std::endl;
+    
+//     return 0;
+// }
 
 size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata){
     ((std::string*)userdata)->append(ptr, size*nmemb);
@@ -31,7 +78,11 @@ std::vector<StockData> fetchStockData(const std::string symb, const int shortwin
     curl_global_init(CURL_GLOBAL_DEFAULT);
     curl = curl_easy_init();
     // TODO: Figure out how to get current day string in C++
-    const std::string url = getUrl(symb, longwind);
+    const std::string start = getDateMinusYears(5);
+    const std::string end = getCurrentDate();
+    const std::string url = getUrl(symb, longwind, start, end);
+
+    fprintf(stdout, "start date: %s\nend date: %s\n", start.c_str(), end.c_str());
     if(curl){
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
@@ -46,7 +97,16 @@ std::vector<StockData> fetchStockData(const std::string symb, const int shortwin
     auto Json = nlohmann::json::parse(buf);
     std::vector<StockData> stockData;
     for (auto& [key, value] : Json["results"].items()) {
-        stockData.push_back({ key, value["c"]});
+
+            std::time_t seconds = (long)value["t"]/1000;
+            std::tm* timeInfo = std::localtime(&seconds);
+            
+            // Create a stringstream to format the date
+            std::stringstream dateStream;
+            dateStream << std::put_time(timeInfo, "%Y-%m-%d");
+        // std::stringstream dateStream;
+        // dateStream << std::put_time(value["t"], "%Y-%m-%d");
+        stockData.push_back({ dateStream.str(), value["c"]});
     }
     return stockData;
 
