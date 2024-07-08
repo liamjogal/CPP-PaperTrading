@@ -1,3 +1,3 @@
 #include <iostream>
 
-extern const std::string API_KEY  = "TEST 2";
+extern const std::string API_KEY  = "TEST SHOULD NOT WORK";
